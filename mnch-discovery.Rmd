@@ -1,0 +1,134 @@
+---
+title: "Gates Foundation Grants"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Purpose
+
+This page documents Rick Gilmore's explorations of the Gates Foundation grants database.
+
+# Set-up
+
+```{r}
+library(tidyverse)
+```
+
+# Download data
+
+The grants data may be found here:
+
+<https://www.gatesfoundation.org/about/committed-grants?topic=MNCH%20Discovery%20and%20Tools&yearAwardedEnd=2021&yearAwardedStart=2011>
+
+```{r}
+download.file(url = "https://www.gatesfoundation.org/-/media/files/bmgf-grants.csv",
+              destfile = "csv/bmgr-grants.csv")
+```
+
+# Import & clean
+
+```{r}
+gates_txt <- readLines("csv/bmgr-grants.csv")
+
+# Drop first line with update date
+gates_csv <- gates_txt[2:length(gates_txt)]
+writeLines(gates_csv, "csv/bmgr-grants-trim.csv")
+```
+
+Reimport.
+
+```{r}
+gates_df <- readr::read_csv("csv/bmgr-grants-trim.csv")
+```
+
+# Explore
+
+Let's see what divisions are represented.
+
+```{r}
+unique(gates_df$DIVISION)
+```
+I'm specifically looking for "MNCH Discovery and Tools". This is a `TOPIC`.
+
+```{r}
+sum(stringr::str_detect(gates_df$TOPIC, "MNCH"))
+```
+
+## Filter on `MNCH`
+
+```{r}
+mnch_dt <- gates_df %>%
+  dplyr::filter(., stringr::str_detect(TOPIC, "MNCH"))
+
+str(mnch_dt)
+```
+
+```{r}
+mnch_dt %>%
+  ggplot(.) +
+  aes(`DURATION (MONTHS)`) +
+  geom_histogram()
+```
+
+```{r}
+mnch_dt %>%
+  ggplot(.) +
+  aes(`AMOUNT COMMITTED`) +
+  geom_histogram(bins = 20)
+```
+
+```{r}
+mnch_dt <- mnch_dt %>%
+  dplyr::select(
+    .,
+    GRANTEE,
+    DIVISION,
+    `GRANTEE COUNTRY`,
+    `GRANTEE`,
+    `DATE COMMITTED`,
+    `DURATION (MONTHS)`,
+    `AMOUNT COMMITTED`
+  ) %>%
+  dplyr::mutate(
+    .,
+    dollars_per_mo = `AMOUNT COMMITTED` / `DURATION (MONTHS)`,
+    year_committed = stringr::str_sub(`DATE COMMITTED`, start = 1, end = 4)
+  ) %>%
+  dplyr::arrange(.,
+                 desc(year_committed),
+                 `GRANTEE COUNTRY`,
+                 `GRANTEE`,
+                 desc(`AMOUNT COMMITTED`))
+
+
+knitr::kable(mnch_dt, 'html')
+```
+
+## Commitments per year
+
+```{r}
+mnch_dt_py <- mnch_dt %>%
+  dplyr::group_by(., year_committed) %>%
+  dplyr::summarize(., dollars_committed = sum(`AMOUNT COMMITTED`))
+
+mnch_dt_py %>%
+  knitr::kable(., 'html')
+```
+
+Time series plot.
+
+```{r}
+mnch_dt_py %>%
+  ggplot(.) +
+  aes(year_committed, dollars_committed) +
+  geom_point()
+```
+
+## Total commitments since 2011
+
+```{r}
+format(sum(mnch_dt_py$dollars_committed), digits = 12, nsmall = 0, big.mark = ",")
+```
+
