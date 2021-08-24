@@ -93,7 +93,7 @@ mnch_dt <- mnch_dt %>%
   ) %>%
   dplyr::mutate(
     .,
-    dollars_per_mo = `AMOUNT COMMITTED` / `DURATION (MONTHS)`,
+    dollars_per_yr = `AMOUNT COMMITTED` / `DURATION (MONTHS)` * 12,
     year_committed = stringr::str_sub(`DATE COMMITTED`, start = 1, end = 4)
   ) %>%
   dplyr::arrange(.,
@@ -106,23 +106,48 @@ mnch_dt <- mnch_dt %>%
 knitr::kable(mnch_dt, 'html')
 ```
 
+Histogram of dollars-committed/project month.
+
+```{r}
+mnch_dt %>%
+  ggplot(.) +
+  aes(dollars_per_yr) +
+  geom_histogram()
+```
+
 ## Commitments per year
 
 ```{r}
 mnch_dt_py <- mnch_dt %>%
   dplyr::group_by(., year_committed) %>%
-  dplyr::summarize(., dollars_committed = sum(`AMOUNT COMMITTED`))
+  dplyr::summarize(., dollars_committed = sum(`AMOUNT COMMITTED`),
+                   n_awards = n(),
+                   avg_award = dollars_committed/n_awards)
 
 mnch_dt_py %>%
   knitr::kable(., 'html')
 ```
 
-Time series plot.
+Time series plots.
 
 ```{r}
 mnch_dt_py %>%
   ggplot(.) +
   aes(year_committed, dollars_committed) +
+  geom_point()
+```
+
+```{r}
+mnch_dt_py %>%
+  ggplot(.) +
+  aes(year_committed, n_awards) +
+  geom_point()
+```
+
+```{r}
+mnch_dt_py %>%
+  ggplot(.) +
+  aes(year_committed, avg_award) +
   geom_point()
 ```
 
